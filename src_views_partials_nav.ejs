@@ -1,0 +1,18 @@
+<header class="topbar no-print">
+  <a class="brand" href="/" aria-label="Suara OSIS beranda"><span class="brand-mark">S</span><span>suara<span class="brand-light">osis</span></span></a>
+  <% if (currentUser) { %>
+    <nav class="nav-links" aria-label="Navigasi utama">
+      <% if (currentUser.role === 'ADMIN') { %>
+        <a href="/admin">Ringkasan</a><a href="/admin/kandidat">Paslon</a><a href="/quick-count">Quick count</a><a href="/admin/audit">Audit</a>
+      <% } else if (currentUser.role === 'PANITIA_TPS') { %>
+        <a href="/panitia">Meja TPS</a><a href="/quick-count">Quick count</a><a href="/panitia/berita-acara">Berita acara</a>
+      <% } else { %>
+        <a href="/pemilih">Bilik suara</a>
+      <% } %>
+    </nav>
+    <div class="user-menu"><span class="user-avatar"><%= currentUser.nama.charAt(0) %></span><span class="user-name"><%= currentUser.nama %><small><%= currentUser.role === 'PANITIA_TPS' ? 'PANITIA TPS' : currentUser.role %></small></span><form action="/logout" method="post"><button class="button button-quiet button-small" type="submit">Keluar</button></form></div>
+  <% } else { %><a class="button button-quiet button-small" href="/login">Masuk</a><% } %>
+</header>
+<% if (successMessages.length || errorMessages.length) { %>
+  <div class="flash-stack no-print"><% successMessages.forEach(message => { %><div class="flash flash-success"><%= message %></div><% }); %><% errorMessages.forEach(message => { %><div class="flash flash-error"><%= message %></div><% }); %></div>
+<% } %>

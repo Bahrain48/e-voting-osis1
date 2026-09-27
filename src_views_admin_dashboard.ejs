@@ -1,0 +1,27 @@
+<%- include('src_views_partials_head') %><%- include('src_views_partials_nav') %>
+<main class="page-wrap">
+  <div class="page-heading"><div><p class="eyebrow">PANEL ADMINISTRATOR</p><h1>Ringkasan pemilihan</h1><p class="muted">Pantau kesiapan dan integritas pemungutan suara.</p></div><a href="/admin/kandidat" class="button button-dark">Kelola paslon <span>→</span></a></div>
+  <section class="stat-grid">
+    <article class="stat-card stat-green"><span class="stat-label">STATUS PEMILIHAN</span><strong><%= config?.isOpen ? 'Berlangsung' : 'Dikunci' %></strong><span class="status-dot <%= config?.isOpen ? 'dot-green' : 'dot-red' %>"></span></article>
+    <article class="stat-card"><span class="stat-label">DAFTAR PEMILIH</span><strong><%= voterTotal %></strong><span class="stat-foot">pemilih terdaftar</span></article>
+    <article class="stat-card"><span class="stat-label">SUARA MASUK</span><strong><%= votedTotal %></strong><span class="stat-foot">dari <%= voterTotal %> pemilih</span></article>
+    <article class="stat-card"><span class="stat-label">PASANGAN CALON</span><strong><%= candidates.length %></strong><span class="stat-foot">terdaftar di pemilihan</span></article>
+  </section>
+  <div class="content-grid">
+    <section class="surface"><div class="section-heading"><div><p class="eyebrow">KONTROL SESI</p><h2>Jadwal & akses</h2></div><span class="badge <%= config?.isOpen ? 'badge-green' : 'badge-red' %>"><%= config?.isOpen ? 'Sesi terbuka' : 'Sesi terkunci' %></span></div>
+      <form action="/admin/pemilihan" method="post" class="schedule-form">
+        <label>Mulai<input type="datetime-local" name="mulaiAt" value="<%= config?.mulaiAt ? new Date(config.mulaiAt.getTime() - config.mulaiAt.getTimezoneOffset() * 60000).toISOString().slice(0,16) : '' %>"></label>
+        <label>Selesai<input type="datetime-local" name="selesaiAt" value="<%= config?.selesaiAt ? new Date(config.selesaiAt.getTime() - config.selesaiAt.getTimezoneOffset() * 60000).toISOString().slice(0,16) : '' %>"></label>
+        <div class="button-row"><button class="button button-primary" name="action" value="open">Buka pemungutan</button><button class="button button-outline" name="action" value="lock">Kunci sesi</button></div>
+      </form>
+      <p class="form-hint">Jadwal kosong berarti tanpa batas waktu. Penguncian admin tetap berlaku.</p>
+    </section>
+    <section class="surface"><div class="section-heading"><div><p class="eyebrow">PEROLEHAN SEMENTARA</p><h2>Suara per paslon</h2></div><a class="text-link" href="/quick-count">Detail →</a></div>
+      <div class="mini-results"><% candidates.forEach(candidate => { const percent = votedTotal ? Math.round(candidate.suaraCount / votedTotal * 100) : 0; %><div class="mini-result"><div class="result-line"><strong>Paslon <%= String(candidate.nomorUrut).padStart(2,'0') %></strong><span><%= candidate.suaraCount %> suara <small>(<%= percent %>%)</small></span></div><div class="progress-track"><span style="width:<%= percent %>%"></span></div><small class="muted"><%= candidate.namaKetua %> & <%= candidate.namaWakil %></small></div><% }); %></div>
+    </section>
+  </div>
+  <section class="surface log-surface"><div class="section-heading"><div><p class="eyebrow">JEJAK SISTEM</p><h2>Aktivitas terbaru</h2></div><a class="text-link" href="/admin/audit">Semua audit →</a></div>
+    <% if (!recentLogs.length) { %><p class="empty-state">Belum ada aktivitas tercatat.</p><% } else { %><div class="table-wrap"><table><thead><tr><th>Aktivitas</th><th>Pengguna</th><th>Detail</th><th>Waktu</th></tr></thead><tbody><% recentLogs.forEach(log => { %><tr><td><strong><%= log.aksi %></strong></td><td><%= log.user?.nama || 'Sistem anonim' %></td><td><%= log.detail %></td><td><%= formatDate(log.createdAt) %></td></tr><% }); %></tbody></table></div><% } %>
+  </section>
+</main><%- include('src_views_partials_foot') %>
+z

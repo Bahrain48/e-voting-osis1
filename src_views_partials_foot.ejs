@@ -1,0 +1,106 @@
+<footer class="site-footer no-print"><span>Panitia Pemilihan OSIS & MPK</span><span class="footer-message"><span class="footer-emojis" aria-hidden="true"><i>✨</i><i>🗳️</i><i>💚</i></span><span>Suara siswa, tercatat dengan jujur.</span></span></footer>
+<div id="page-loader" class="page-loader" role="status" aria-live="polite" aria-label="Memuat halaman" hidden>
+	<div class="page-loader-panel"><span class="loader-mark" aria-hidden="true">S</span><span class="loader-orbit" aria-hidden="true"></span><strong>Menyiapkan halaman</strong><span class="loader-caption">Suara Anda, pengalaman yang lancar.</span><span class="loader-progress" aria-hidden="true"><i></i></span></div>
+</div>
+<div id="custom-tooltip" role="tooltip" aria-hidden="true"><span class="tooltip-icon" aria-hidden="true"></span><span class="tooltip-copy"></span></div>
+<script>
+	(() => {
+		const pageLoader = document.getElementById('page-loader');
+		let loaderTimer = 0;
+		let navigationStarted = false;
+
+		const showPageLoader = () => {
+			if (!pageLoader || navigationStarted) return;
+			navigationStarted = true;
+			loaderTimer = window.setTimeout(() => {
+				pageLoader.hidden = false;
+				document.body.classList.add('is-loading');
+			}, 110);
+		};
+
+		document.addEventListener('click', (event) => {
+			if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+			const link = event.target.closest('a[href]');
+			if (!link || link.hasAttribute('download') || (link.target && link.target !== '_self')) return;
+			const destination = new URL(link.href, window.location.href);
+			if (destination.origin !== window.location.origin || destination.pathname === window.location.pathname && destination.search === window.location.search && destination.hash) return;
+			showPageLoader();
+		}, true);
+
+		document.addEventListener('submit', (event) => {
+			const form = event.target;
+			if (!(form instanceof HTMLFormElement) || form.target && form.target !== '_self' || form.method.toLowerCase() === 'dialog') return;
+			showPageLoader();
+		}, true);
+
+		window.addEventListener('pageshow', () => {
+			window.clearTimeout(loaderTimer);
+			navigationStarted = false;
+			if (pageLoader) pageLoader.hidden = true;
+			document.body.classList.remove('is-loading');
+		});
+
+		const tooltip = document.getElementById('custom-tooltip');
+		if (!tooltip) return;
+		const iconNode = tooltip.querySelector('.tooltip-icon');
+		const copyNode = tooltip.querySelector('.tooltip-copy');
+		const hintTargets = 'button, a[href], .surface, .stat-card, .candidate-edit, .ballot-card, .count-card, .receipt-box, .token-code, .token-sheet, .mini-game';
+		let activeTarget = null;
+
+		const getHint = (target) => {
+			if (!target.dataset.hint) {
+				const label = target.getAttribute('aria-label') || target.innerText || target.textContent || '';
+				target.dataset.hint = label.trim().replace(/\s+/g, ' ').slice(0, 100) || 'Buka bagian ini';
+			}
+			if (!target.dataset.icon) target.dataset.icon = target.matches('button, a[href]') ? '↗' : '◎';
+			return target.dataset;
+		};
+
+		const placeTooltip = (event) => {
+			if (!activeTarget) return;
+			const margin = 12;
+			const bounds = tooltip.getBoundingClientRect();
+			const left = Math.min(event.clientX + 14, window.innerWidth - bounds.width - margin);
+			const top = Math.min(event.clientY + 18, window.innerHeight - bounds.height - margin);
+			tooltip.style.left = `${Math.max(margin, left)}px`;
+			tooltip.style.top = `${Math.max(margin, top)}px`;
+		};
+
+		document.addEventListener('mouseover', (event) => {
+			if (event.pointerType === 'touch') return;
+			const target = event.target.closest(hintTargets);
+			if (!target || target.disabled) return;
+			activeTarget = target;
+			const hint = getHint(target);
+			iconNode.textContent = hint.icon;
+			copyNode.textContent = hint.hint;
+			tooltip.setAttribute('aria-hidden', 'false');
+			tooltip.classList.add('is-visible');
+		});
+		document.addEventListener('mousemove', placeTooltip, { passive: true });
+		document.addEventListener('mouseout', (event) => {
+			if (!activeTarget || activeTarget.contains(event.relatedTarget)) return;
+			if (event.target.closest(hintTargets) !== activeTarget) return;
+			activeTarget = null;
+			tooltip.classList.remove('is-visible');
+			tooltip.setAttribute('aria-hidden', 'true');
+		});
+		document.addEventListener('focusin', (event) => {
+			const target = event.target.closest(hintTargets);
+			if (!target) return;
+			activeTarget = target;
+			const hint = getHint(target);
+			iconNode.textContent = hint.icon;
+			copyNode.textContent = hint.hint;
+			tooltip.classList.add('is-visible');
+			tooltip.setAttribute('aria-hidden', 'false');
+		});
+		document.addEventListener('focusout', () => {
+			activeTarget = null;
+			tooltip.classList.remove('is-visible');
+			tooltip.setAttribute('aria-hidden', 'true');
+		});
+	})();
+</script>
+</body>
+</html>

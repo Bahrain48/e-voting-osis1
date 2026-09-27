@@ -1,0 +1,317 @@
+<%- include('src_views_partials_head') %><%- include('src_views_partials_nav') %>
+<main class="success-wrap page-transition-smooth">
+  <div class="success-mark success-large">✓</div>
+  <p class="eyebrow">SUARA TERCATAT</p>
+  <h1>Terima kasih<br>telah memilih.</h1>
+  <p class="muted">Pilihan Anda sudah masuk ke sistem secara anonim. Token voting telah dinonaktifkan.</p>
+  <div class="receipt-box" data-hint="Simpan kode ini sebagai bukti partisipasi." data-icon="✓"><span>KODE BUKTI PARTISIPASI</span><strong><%= receiptCode %></strong></div>
+  <a class="button button-dark" href="/pemilih" data-hint="Kembali ke halaman bilik suara." data-icon="↩">Kembali ke beranda <span>→</span></a>
+</main>
+<section class="game-center" aria-labelledby="game-center-title">
+  <header class="game-center-heading">
+    <div><p class="eyebrow">SUARA OSIS ARCADE</p><h2 id="game-center-title">Game Center</h2><p>Pilih permainan dan ambil jeda setelah memberikan suara.</p></div>
+    <div class="game-center-score" aria-live="polite"><span>SKOR</span><strong id="game-score">0</strong></div>
+  </header>
+  <nav class="game-mode-menu" aria-label="Pilih permainan">
+    <button class="game-mode-button is-active" type="button" data-game-mode="shooter" aria-pressed="true" data-hint="Tembak meteor yang jatuh dengan klik atau ketuk." data-icon="✦"><span class="game-mode-index">01</span><span>Space Shooter</span></button>
+    <button class="game-mode-button" type="button" data-game-mode="snake" aria-pressed="false" data-hint="Kendalikan ular dengan tombol panah." data-icon="↗"><span class="game-mode-index">02</span><span>Retro Snake</span></button>
+    <button class="game-mode-button" type="button" data-game-mode="brick" aria-pressed="false" data-hint="Gerakkan paddle untuk memantulkan bola ke balok." data-icon="▤"><span class="game-mode-index">03</span><span>Brick Breaker</span></button>
+  </nav>
+  <div class="game-arena" id="game-arena">
+    <canvas id="game-canvas" class="game-canvas" width="1120" height="480" aria-label="Area permainan"></canvas>
+    <div id="game-over-overlay" class="game-over-overlay" hidden>
+      <div class="game-over-panel"><span class="game-over-kicker">RUN SELESAI</span><h3>Game Over</h3><p>Skor Akhir</p><strong id="final-score">0</strong><button id="play-again" class="button button-game-restart" type="button" data-hint="Mulai ulang permainan yang sedang dipilih." data-icon="↻">Main Lagi <span>↗</span></button></div>
+    </div>
+  </div>
+  <footer class="game-center-footer">
+    <p id="game-instructions" class="game-instructions" aria-live="polite">Klik atau ketuk canvas untuk menembak meteor. Hindari meteor yang mencapai garis bawah.</p>
+    <div class="game-live-score"><span class="game-live-dot"></span><span>SKOR LANGSUNG</span><strong id="game-score-footer">0</strong></div>
+  </footer>
+</section>
+<script>
+  (() => {
+    document.body.classList.add('game-success-page');
+    const canvas = document.getElementById('game-canvas');
+    const scoreNode = document.getElementById('game-score');
+    const footerScoreNode = document.getElementById('game-score-footer');
+    const instructionNode = document.getElementById('game-instructions');
+    const overlay = document.getElementById('game-over-overlay');
+    const finalScoreNode = document.getElementById('final-score');
+    const playAgainButton = document.getElementById('play-again');
+    const modeButtons = [...document.querySelectorAll('[data-game-mode]')];
+    if (!canvas || !scoreNode || !footerScoreNode || !instructionNode || !overlay || !finalScoreNode || !playAgainButton || !modeButtons.length) return;
+
+    const context = canvas.getContext('2d');
+    const width = 1120;
+    const height = 480;
+    const instructions = {
+      shooter: 'Klik atau ketuk canvas untuk menembak meteor. Hindari meteor yang mencapai garis bawah.',
+      snake: 'Gunakan tombol Arrow untuk bergerak. Makan buah, jangan menabrak dinding atau tubuh sendiri.',
+      brick: 'Gerakkan mouse atau jari secara horizontal untuk mengatur paddle dan menjaga bola tetap memantul.',
+    };
+    const shooter = { playerX: width / 2, shots: [], meteors: [], cooldown: 0, lives: 3, spawnClock: 0 };
+    const snake = { cell: 24, cols: 0, rows: 0, body: [], direction: { x: 1, y: 0 }, nextDirection: { x: 1, y: 0 }, fruit: { x: 0, y: 0 }, clock: 0 };
+    let brick = null;
+    let activeMode = 'shooter';
+    let score = 0;
+    let gameOver = false;
+    let lastFrame = 0;
+    let animationFrame = 0;
+    let scaleX = 1;
+    let scaleY = 1;
+
+    function setScore(value) {
+      score = value;
+      scoreNode.textContent = String(score);
+      footerScoreNode.textContent = String(score);
+    }
+
+    function roundRect(x, y, rectWidth, rectHeight, radius) {
+      const r = Math.min(radius, rectWidth / 2, rectHeight / 2);
+      context.beginPath();
+      context.moveTo(x + r, y);
+      context.arcTo(x + rectWidth, y, x + rectWidth, y + rectHeight, r);
+      context.arcTo(x + rectWidth, y + rectHeight, x, y + rectHeight, r);
+      context.arcTo(x, y + rectHeight, x, y, r);
+      context.arcTo(x, y, x + rectWidth, y, r);
+      context.closePath();
+    }
+
+    function drawBackground() {
+      context.clearRect(0, 0, width, height);
+      const gradient = context.createLinearGradient(0, 0, width, height);
+      gradient.addColorStop(0, '#091c16');
+      gradient.addColorStop(.52, '#103b2c');
+      gradient.addColorStop(1, '#10271f');
+      context.fillStyle = gradient;
+      context.fillRect(0, 0, width, height);
+      context.strokeStyle = 'rgba(167,243,208,.075)';
+      context.lineWidth = 1;
+      for (let x = 0; x <= width; x += 40) {
+        context.beginPath(); context.moveTo(x, 0); context.lineTo(x, height); context.stroke();
+      }
+      for (let y = 0; y <= height; y += 40) {
+        context.beginPath(); context.moveTo(0, y); context.lineTo(width, y); context.stroke();
+      }
+    }
+
+    function drawShooter() {
+      shooter.shots.forEach((shot) => {
+        context.fillStyle = '#bbf7d0'; context.shadowColor = '#34d399'; context.shadowBlur = 12;
+        roundRect(shot.x - 3, shot.y - 13, 6, 18, 3); context.fill();
+      });
+      context.shadowBlur = 0;
+      shooter.meteors.forEach((meteor) => {
+        context.save(); context.translate(meteor.x, meteor.y); context.rotate(meteor.rotation);
+        context.fillStyle = '#c08457'; context.strokeStyle = '#fed7aa'; context.lineWidth = 2;
+        context.beginPath();
+        for (let point = 0; point < 10; point += 1) {
+          const angle = point * Math.PI / 5;
+          const radius = point % 2 === 0 ? meteor.radius : meteor.radius * .72;
+          const px = Math.cos(angle) * radius; const py = Math.sin(angle) * radius;
+          if (point === 0) context.moveTo(px, py); else context.lineTo(px, py);
+        }
+        context.closePath(); context.fill(); context.stroke();
+        context.fillStyle = 'rgba(124,45,18,.45)'; context.beginPath(); context.arc(-meteor.radius * .22, -meteor.radius * .12, meteor.radius * .22, 0, Math.PI * 2); context.fill();
+        context.restore();
+      });
+      context.save(); context.translate(shooter.playerX, height - 46);
+      context.fillStyle = '#6ee7b7'; context.strokeStyle = '#d1fae5'; context.lineWidth = 2;
+      context.beginPath(); context.moveTo(0, -20); context.lineTo(18, 16); context.lineTo(0, 9); context.lineTo(-18, 16); context.closePath(); context.fill(); context.stroke();
+      context.fillStyle = '#a7f3d0'; context.beginPath(); context.moveTo(-7, 13); context.lineTo(0, 25); context.lineTo(7, 13); context.closePath(); context.fill(); context.restore();
+      context.fillStyle = '#d1fae5'; context.font = '600 13px DM Sans, sans-serif'; context.fillText(`SHIELDS  ${'◆ '.repeat(shooter.lives).trim()}`, 24, height - 20);
+    }
+
+    function spawnMeteor() {
+      const radius = 14 + Math.random() * 15;
+      shooter.meteors.push({ x: radius + Math.random() * (width - radius * 2), y: -radius, radius, speed: 92 + Math.random() * 82 + Math.min(score, 20) * 3, rotation: Math.random() * Math.PI * 2, spin: (Math.random() - .5) * 2 });
+    }
+
+    function updateShooter(delta) {
+      shooter.cooldown = Math.max(0, shooter.cooldown - delta);
+      shooter.spawnClock += delta;
+      if (shooter.spawnClock > Math.max(.36, 1.05 - score * .025)) { shooter.spawnClock = 0; spawnMeteor(); }
+      shooter.shots.forEach((shot) => { shot.y -= 490 * delta; });
+      shooter.shots = shooter.shots.filter((shot) => shot.y > -24);
+      shooter.meteors.forEach((meteor) => { meteor.y += meteor.speed * delta; meteor.rotation += meteor.spin * delta; });
+      for (let meteorIndex = shooter.meteors.length - 1; meteorIndex >= 0; meteorIndex -= 1) {
+        const meteor = shooter.meteors[meteorIndex];
+        if (meteor.y - meteor.radius > height) {
+          shooter.meteors.splice(meteorIndex, 1); shooter.lives -= 1;
+          if (shooter.lives <= 0) finishGame();
+          continue;
+        }
+        for (let shotIndex = shooter.shots.length - 1; shotIndex >= 0; shotIndex -= 1) {
+          const shot = shooter.shots[shotIndex];
+          if (Math.hypot(meteor.x - shot.x, meteor.y - shot.y) < meteor.radius + 7) {
+            shooter.meteors.splice(meteorIndex, 1); shooter.shots.splice(shotIndex, 1); setScore(score + 10); break;
+          }
+        }
+      }
+    }
+
+    function placeFruit() {
+      let fruit;
+      do { fruit = { x: Math.floor(Math.random() * snake.cols), y: Math.floor(Math.random() * snake.rows) }; }
+      while (snake.body.some((segment) => segment.x === fruit.x && segment.y === fruit.y));
+      snake.fruit = fruit;
+    }
+
+    function setupSnake() {
+      snake.cols = Math.floor((width - 48) / snake.cell); snake.rows = Math.floor((height - 48) / snake.cell);
+      const centerX = Math.floor(snake.cols / 2); const centerY = Math.floor(snake.rows / 2);
+      snake.body = [{ x: centerX, y: centerY }, { x: centerX - 1, y: centerY }, { x: centerX - 2, y: centerY }];
+      snake.direction = { x: 1, y: 0 }; snake.nextDirection = { x: 1, y: 0 }; snake.clock = 0; placeFruit();
+    }
+
+    function updateSnake(delta) {
+      snake.clock += delta;
+      if (snake.clock < Math.max(.075, .15 - score * .002)) return;
+      snake.clock = 0; snake.direction = snake.nextDirection;
+      const head = { x: snake.body[0].x + snake.direction.x, y: snake.body[0].y + snake.direction.y };
+      const ateFruit = head.x === snake.fruit.x && head.y === snake.fruit.y;
+      const collisionBody = ateFruit ? snake.body : snake.body.slice(0, -1);
+      if (head.x < 0 || head.x >= snake.cols || head.y < 0 || head.y >= snake.rows || collisionBody.some((segment) => segment.x === head.x && segment.y === head.y)) { finishGame(); return; }
+      snake.body.unshift(head);
+      if (ateFruit) { setScore(score + 10); placeFruit(); } else snake.body.pop();
+    }
+
+    function drawSnake() {
+      const boardWidth = snake.cols * snake.cell; const boardHeight = snake.rows * snake.cell;
+      const offsetX = (width - boardWidth) / 2; const offsetY = (height - boardHeight) / 2;
+      snake.body.forEach((segment, index) => {
+        context.fillStyle = index === 0 ? '#a7f3d0' : `rgba(52,211,153,${Math.max(.42, .9 - index * .018)})`;
+        roundRect(offsetX + segment.x * snake.cell + 2, offsetY + segment.y * snake.cell + 2, snake.cell - 4, snake.cell - 4, 6); context.fill();
+      });
+      const fruitX = offsetX + snake.fruit.x * snake.cell + snake.cell / 2;
+      const fruitY = offsetY + snake.fruit.y * snake.cell + snake.cell / 2;
+      context.fillStyle = '#fb7185'; context.beginPath(); context.arc(fruitX, fruitY, snake.cell * .34, 0, Math.PI * 2); context.fill();
+      context.fillStyle = '#bbf7d0'; context.beginPath(); context.ellipse(fruitX + 5, fruitY - 9, 5, 2.5, -.5, 0, Math.PI * 2); context.fill();
+    }
+
+    function setupBrick() {
+      brick = { paddleX: width / 2, paddleWidth: 132, paddleHeight: 14, ballX: width / 2, ballY: height - 76, ballRadius: 9, ballVx: 205, ballVy: -235, bricks: [], lives: 3 };
+      const rows = 5; const columns = 12; const gap = 8; const brickWidth = (width - 112 - gap * (columns - 1)) / columns;
+      for (let row = 0; row < rows; row += 1) {
+        for (let column = 0; column < columns; column += 1) {
+          brick.bricks.push({ x: 56 + column * (brickWidth + gap), y: 54 + row * 31, width: brickWidth, height: 20, alive: true, color: ['#34d399', '#2dd4bf', '#6ee7b7', '#a7f3d0', '#5eead4'][row] });
+        }
+      }
+    }
+
+    function updateBrick(delta) {
+      brick.ballX += brick.ballVx * delta; brick.ballY += brick.ballVy * delta;
+      if (brick.ballX < brick.ballRadius || brick.ballX > width - brick.ballRadius) brick.ballVx *= -1;
+      if (brick.ballY < brick.ballRadius) brick.ballVy = Math.abs(brick.ballVy);
+      if (brick.ballVy > 0 && brick.ballY + brick.ballRadius >= height - 54 && brick.ballY - brick.ballRadius <= height - 54 + brick.paddleHeight && Math.abs(brick.ballX - brick.paddleX) <= brick.paddleWidth / 2 + brick.ballRadius) {
+        const offset = (brick.ballX - brick.paddleX) / (brick.paddleWidth / 2);
+        brick.ballVx = offset * 340; brick.ballVy = -Math.max(190, Math.sqrt(410 * 410 - brick.ballVx * brick.ballVx)); brick.ballY = height - 54 - brick.ballRadius;
+      }
+      const hitBrick = brick.bricks.find((item) => item.alive && brick.ballX + brick.ballRadius >= item.x && brick.ballX - brick.ballRadius <= item.x + item.width && brick.ballY + brick.ballRadius >= item.y && brick.ballY - brick.ballRadius <= item.y + item.height);
+      if (hitBrick) {
+        hitBrick.alive = false; brick.ballVy *= -1; setScore(score + 5);
+        if (brick.bricks.every((item) => !item.alive)) { setupBrick(); instructionNode.textContent = 'Semua balok hancur! Babak baru dimulai.'; }
+      }
+      if (brick.ballY - brick.ballRadius > height) {
+        brick.lives -= 1;
+        if (brick.lives <= 0) { finishGame(); return; }
+        brick.ballX = brick.paddleX; brick.ballY = height - 76; brick.ballVx = (Math.random() > .5 ? 1 : -1) * 205; brick.ballVy = -235;
+      }
+    }
+
+    function drawBrick() {
+      brick.bricks.forEach((item) => {
+        if (!item.alive) return;
+        context.fillStyle = item.color; context.shadowColor = item.color; context.shadowBlur = 8;
+        roundRect(item.x, item.y, item.width, item.height, 5); context.fill();
+      });
+      context.shadowBlur = 0; context.fillStyle = '#d1fae5';
+      roundRect(brick.paddleX - brick.paddleWidth / 2, height - 54, brick.paddleWidth, brick.paddleHeight, 7); context.fill();
+      context.fillStyle = '#fff'; context.beginPath(); context.arc(brick.ballX, brick.ballY, brick.ballRadius, 0, Math.PI * 2); context.fill();
+      context.fillStyle = '#d1fae5'; context.font = '600 13px DM Sans, sans-serif'; context.fillText(`BALLS  ${'◆ '.repeat(brick.lives).trim()}`, 24, height - 20);
+    }
+
+    function drawScene() {
+      drawBackground();
+      if (activeMode === 'shooter') drawShooter();
+      if (activeMode === 'snake') drawSnake();
+      if (activeMode === 'brick') drawBrick();
+    }
+
+    function finishGame() {
+      if (gameOver) return;
+      gameOver = true; finalScoreNode.textContent = String(score); overlay.hidden = false;
+      instructionNode.textContent = 'Permainan selesai. Pilih Main Lagi atau ganti mode permainan.';
+    }
+
+    function resetGame() {
+      gameOver = false; lastFrame = 0; overlay.hidden = true; setScore(0); instructionNode.textContent = instructions[activeMode];
+      shooter.playerX = width / 2; shooter.shots = []; shooter.meteors = []; shooter.cooldown = 0; shooter.lives = 3; shooter.spawnClock = 0;
+      setupSnake(); setupBrick(); drawScene();
+    }
+
+    function selectMode(mode) {
+      if (!Object.hasOwn(instructions, mode)) return;
+      activeMode = mode;
+      modeButtons.forEach((button) => {
+        const selected = button.dataset.gameMode === mode;
+        button.classList.toggle('is-active', selected); button.setAttribute('aria-pressed', String(selected));
+      });
+      resetGame();
+    }
+
+    function resizeCanvas() {
+      const bounds = canvas.getBoundingClientRect(); const ratio = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.round(bounds.width * ratio); canvas.height = Math.round(bounds.height * ratio);
+      scaleX = canvas.width / width; scaleY = canvas.height / height;
+      context.setTransform(scaleX, 0, 0, scaleY, 0, 0);
+      if (activeMode === 'snake') setupSnake();
+      if (activeMode === 'brick') setupBrick();
+      drawScene();
+    }
+
+    function canvasPoint(event) {
+      const bounds = canvas.getBoundingClientRect();
+      return { x: (event.clientX - bounds.left) * width / bounds.width, y: (event.clientY - bounds.top) * height / bounds.height };
+    }
+
+    canvas.addEventListener('pointermove', (event) => {
+      const point = canvasPoint(event);
+      if (activeMode === 'shooter') shooter.playerX = Math.max(28, Math.min(width - 28, point.x));
+      if (activeMode === 'brick') brick.paddleX = Math.max(brick.paddleWidth / 2 + 12, Math.min(width - brick.paddleWidth / 2 - 12, point.x));
+    });
+
+    canvas.addEventListener('pointerdown', (event) => {
+      if (activeMode !== 'shooter' || gameOver || shooter.cooldown > 0) return;
+      shooter.playerX = canvasPoint(event).x; shooter.shots.push({ x: shooter.playerX, y: height - 70 }); shooter.cooldown = .22;
+    });
+
+    window.addEventListener('keydown', (event) => {
+      if (activeMode !== 'snake' || !event.key.startsWith('Arrow')) return;
+      event.preventDefault();
+      const directions = { ArrowUp: { x: 0, y: -1 }, ArrowDown: { x: 0, y: 1 }, ArrowLeft: { x: -1, y: 0 }, ArrowRight: { x: 1, y: 0 } };
+      const direction = directions[event.key];
+      if (direction.x + snake.direction.x !== 0 || direction.y + snake.direction.y !== 0) snake.nextDirection = direction;
+    }, { passive: false });
+
+    modeButtons.forEach((button) => button.addEventListener('click', () => selectMode(button.dataset.gameMode)));
+    playAgainButton.addEventListener('click', resetGame);
+
+    function animate(timestamp) {
+      const delta = lastFrame ? Math.min((timestamp - lastFrame) / 1000, .04) : 0;
+      lastFrame = timestamp;
+      if (!gameOver) {
+        if (activeMode === 'shooter') updateShooter(delta);
+        if (activeMode === 'snake') updateSnake(delta);
+        if (activeMode === 'brick') updateBrick(delta);
+      }
+      drawScene(); animationFrame = window.requestAnimationFrame(animate);
+    }
+
+    setupSnake(); setupBrick(); resizeCanvas();
+    window.addEventListener('resize', resizeCanvas, { passive: true });
+    animationFrame = window.requestAnimationFrame(animate);
+    window.addEventListener('pagehide', () => window.cancelAnimationFrame(animationFrame), { once: true });
+  })();
+</script>
+<%- include('src_views_partials_foot') %>

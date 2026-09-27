@@ -1,0 +1,4 @@
+<%- include('src_views_partials_head') %><%- include('src_views_partials_nav') %>
+<main class="page-wrap"><div class="page-heading"><div><p class="eyebrow">AKUNTABILITAS</p><h1>Audit aktivitas</h1><p class="muted">Riwayat tindakan operasional pada sistem pemilihan.</p></div><span class="badge badge-neutral"><%= logs.length %> aktivitas terakhir</span></div>
+<section class="surface"><% if (!logs.length) { %><p class="empty-state">Aktivitas akan muncul di sini.</p><% } else { %><div class="table-wrap"><table><thead><tr><th>Waktu</th><th>Pelaku</th><th>Tindakan</th><th>Detail</th></tr></thead><tbody><% logs.forEach(log => { %><tr><td class="nowrap"><%= formatDate(log.createdAt) %></td><td><%= log.user?.nama || 'Sistem' %></td><td><strong><%= log.aksi %></strong></td><td><%= log.detail %></td></tr><% }); %></tbody></table></div><% } %></section>
+</main><%- include('src_views_partials_foot') %>

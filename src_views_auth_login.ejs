@@ -1,0 +1,83 @@
+<%- include('src_views_partials_head') %>
+<link rel="stylesheet" href="/src_public_auth-login.css">
+<%- include('src_views_partials_flash') %>
+<main class="login-shell">
+  <section class="login-story">
+    <div class="login-brandline"><span class="brand-mark">S</span><span>PEMILIHAN SISWA 2026</span></div>
+    <div class="story-copy"><p class="eyebrow">SUARA KITA, ARAH KITA</p><h1>Satu pilihan.<br><em>Masa depan bersama.</em></h1><p class="story-description">Pilih pemimpin OSIS dan MPK dengan tenang, langsung, dan rahasia.</p></div>
+    <div class="school-photo-collage" aria-label="Suasana belajar dan kolaborasi siswa">
+      <figure class="school-photo school-photo-main"><img src="https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&amp;fit=crop&amp;w=1000&amp;q=85" alt="Siswa berkolaborasi dalam kegiatan belajar" loading="eager"><figcaption><span>RUANG KOLABORASI</span><strong>Belajar. Berkarya. Bertumbuh.</strong></figcaption></figure>
+      <figure class="school-photo school-photo-campus"><img src="https://images.unsplash.com/photo-1562774053-701939374585?auto=format&amp;fit=crop&amp;w=700&amp;q=85" alt="Gedung dan lingkungan sekolah" loading="lazy"><figcaption><span>HARI SEKOLAH</span></figcaption></figure>
+      <span class="photo-emoji emoji-spark" aria-hidden="true">✨</span>
+      <span class="photo-emoji emoji-tech" aria-hidden="true">💻</span>
+      <span class="photo-emoji emoji-vote" aria-hidden="true">🗳️</span>
+    </div>
+    <div class="story-foot"><span>01 — 03</span><span>Pemilihan Ketua OSIS & MPK</span></div>
+  </section>
+  <section class="login-panel">
+    <div class="login-form-wrap"><p class="eyebrow">PORTAL PEMILIHAN</p><h2>Selamat datang</h2><p class="muted">Masuk dengan akun yang sudah terdaftar.</p>
+      <div class="login-mode-switch" role="tablist" aria-label="Jenis akun">
+        <button class="login-mode active" type="button" role="tab" aria-selected="true" data-mode="voter">Pemilih</button>
+        <button class="login-mode" type="button" role="tab" aria-selected="false" data-mode="staff">Admin / Panitia</button>
+      </div>
+      <form action="/login" method="post" class="form-stack login-auth-form">
+        <div class="login-fields" data-fields="voter">
+          <label>NISN<input name="nisn" inputmode="numeric" autocomplete="username" pattern="[0-9]{10}" maxlength="10" placeholder="10 digit NISN" required></label>
+          <label>Nama lengkap<input name="nama" autocomplete="name" placeholder="Sesuai Daftar Pemilih Tetap" required></label>
+        </div>
+        <div class="login-fields" data-fields="staff" hidden>
+          <label>Nama pengguna<input name="username" autocomplete="username" placeholder="Contoh: panitia" disabled required></label>
+          <label>Kata sandi<input type="password" name="password" autocomplete="current-password" placeholder="Masukkan kata sandi" disabled required></label>
+        </div>
+        <button class="button button-primary button-wide" type="submit">Masuk ke aplikasi <span aria-hidden="true">→</span></button>
+      </form>
+    </div>
+    <p class="login-legal">Akses terbatas untuk warga sekolah terdaftar.</p>
+  </section>
+</main>
+<script>
+  const modeButtons = [...document.querySelectorAll('.login-mode')];
+  const fieldGroups = [...document.querySelectorAll('.login-fields')];
+  function setLoginMode(mode) {
+    modeButtons.forEach((button) => {
+      const active = button.dataset.mode === mode;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-selected', String(active));
+    });
+    fieldGroups.forEach((group) => {
+      const active = group.dataset.fields === mode;
+      group.hidden = !active;
+      group.querySelectorAll('input').forEach((input) => {
+        input.disabled = !active;
+        input.required = active;
+      });
+    });
+  }
+  modeButtons.forEach((button) => button.addEventListener('click', () => setLoginMode(button.dataset.mode)));
+
+  const loginStory = document.querySelector('.login-story');
+  let pointerFrame = 0;
+  if (loginStory && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    loginStory.addEventListener('pointermove', (event) => {
+      if (event.pointerType === 'touch') return;
+      if (pointerFrame) window.cancelAnimationFrame(pointerFrame);
+      pointerFrame = window.requestAnimationFrame(() => {
+        const bounds = loginStory.getBoundingClientRect();
+        const horizontal = (event.clientX - bounds.left) / bounds.width - .5;
+        const vertical = (event.clientY - bounds.top) / bounds.height - .5;
+        loginStory.style.setProperty('--pointer-x', `${((horizontal + .5) * 100).toFixed(2)}%`);
+        loginStory.style.setProperty('--pointer-y', `${((vertical + .5) * 100).toFixed(2)}%`);
+        loginStory.style.setProperty('--grid-shift-x', `${(-horizontal * 24).toFixed(2)}px`);
+        loginStory.style.setProperty('--grid-shift-y', `${(-vertical * 24).toFixed(2)}px`);
+      });
+    }, { passive: true });
+    loginStory.addEventListener('pointerleave', () => {
+      if (pointerFrame) window.cancelAnimationFrame(pointerFrame);
+      loginStory.style.setProperty('--pointer-x', '50%');
+      loginStory.style.setProperty('--pointer-y', '50%');
+      loginStory.style.setProperty('--grid-shift-x', '0px');
+      loginStory.style.setProperty('--grid-shift-y', '0px');
+    }, { passive: true });
+  }
+</script>
+<%- include('src_views_partials_foot') %>
